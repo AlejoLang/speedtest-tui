@@ -8,7 +8,7 @@ const SERVERS_URLS: [&str; 4] = [
     "http://c.speedtest.net/speedtest-servers.php"
 ];
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Server {
     id: i32,
     pub url: String,
@@ -19,7 +19,7 @@ pub struct Server {
 }
 
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Servers {
     servers: Vec<Server>,
 }
@@ -38,7 +38,6 @@ impl Servers {
     }
 
     pub async fn update_servers(&mut self) -> Result<()> {
-        print!("EO");
         let mut response_text: String = String::new();
         let mut last_error: Option<reqwest::Error> = None;
         
