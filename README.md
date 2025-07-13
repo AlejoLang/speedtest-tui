@@ -3,7 +3,7 @@
 [Ratatui]: https://ratatui.rs
 
 TUI app to measure network ping, upload and download speed.
-Using [Speedtest server list](speedtest.net)
+Using [Speedtest server list](https://www.speedtest.net)
 
 ## License
 
