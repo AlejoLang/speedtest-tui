@@ -1,12 +1,13 @@
 use std::net::TcpStream;
 use std::time::Instant;
 
+#[derive(Clone, Default)]
 pub struct TcpTest {
     host: String,
     port: u16,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct TcpTestLatency {
     pub min: f64,
     pub max: f64,
@@ -20,7 +21,6 @@ impl TcpTest {
 
     pub fn measure_latency(&self) -> Result<f64, Box<dyn std::error::Error>> {
         let start = Instant::now();
-        println!("Connecting to {}:{}", self.host, "");
         let _stream = TcpStream::connect(self.host.as_str())?;
         let duration = start.elapsed();
         Ok(duration.as_millis() as f64)
