@@ -15,6 +15,7 @@ pub struct Server {
     pub name: String,
     pub country: String,
     pub sponsor: String,
+    pub host: String,
 }
 
 
@@ -88,6 +89,7 @@ impl Servers {
                                 "url" => new_server.url = value.to_owned(),
                                 "country" => new_server.country = value.to_owned(),
                                 "sponsor" => new_server.sponsor = value.to_owned(),
+                                "host" => new_server.host = value.to_owned(),
                                 _ => {}
                             }
                         }
