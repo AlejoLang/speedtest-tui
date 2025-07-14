@@ -1,26 +1,27 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::{style::Stylize, text::{Line, Text}, widgets::{Block, Paragraph, Widget}, DefaultTerminal, Frame};
-use crate::{ping_component::{self, PingComponent}, servers::Servers, tcp_tests::TcpTestLatency};
-use crate::tcp_tests::TcpTest;
-use tokio::{net::tcp, sync::mpsc};
+use ratatui::{widgets::{Block, Paragraph}, DefaultTerminal, Frame};
+use tokio::sync::mpsc;
+use crate::{http_tester::HttpTester, ping_component::PingComponent, servers::Servers, services::HttpTestService};
 
-#[derive(Default)]
 pub struct App {
     running: bool,
     servers: Servers,
+    test_service: HttpTestService,
     ping_component: PingComponent,
+    testing: bool
 }
 
 impl App {
     pub fn new() -> Self {
-        let ping_component = PingComponent::new(TcpTest::default());
         Self {
             running: true,
             servers: Servers::default(),
-            ping_component,
+            test_service: HttpTestService::new(HttpTester::default()),
+            ping_component: PingComponent::default(),
+            testing: false
         }
     }
 
@@ -35,14 +36,21 @@ impl App {
                 return Err(e.into());
             }
         }
-        let current_server = self.servers.get_servers()[0].clone(); 
-        self.ping_component.set_server(current_server);
+        let current_server = self.servers.get_servers()[5].clone(); 
+        let url = format!("http://{}", current_server.host);
+        self.test_service.set_tester(HttpTester::new(url.as_str()));
 
         while self.running {
-            self.ping_component.check_latency_results().await;
+            self.test_service.check_measurments().await;
+
+            if !self.test_service.get_testing() {
+                let new_ping_measurment = self.test_service.get_ping_results().clone();
+                self.ping_component.set_ping_measurement(new_ping_measurment);
+            }
+
             terminal.draw(|frame| self.render(frame))?;
             
-            self.handle_crossterm_events_async().await?;
+            self.handle_crossterm_events();
             
             tokio::time::sleep(Duration::from_millis(16)).await; // ~60 FPS
         }
@@ -51,14 +59,17 @@ impl App {
 
     fn render(&mut self, frame: &mut Frame) {
         frame.render_widget(&self.ping_component, frame.area());
+        let url = self.servers.get_servers()[0].host.clone();
+        let p = Block::default().title(url.as_str()).borders(ratatui::widgets::Borders::ALL);
+        frame.render_widget(p, frame.area());
     }
 
-    async fn handle_crossterm_events_async(&mut self) -> Result<()> {
+    fn handle_crossterm_events(&mut self) -> Result<()> {
         // Usar poll para verificar si hay eventos disponibles sin bloquear
         if event::poll(Duration::from_millis(0))? {
             match event::read()? {
                 // it's important to check KeyEventKind::Press to avoid handling key release events
-                Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key).await,
+                Event::Key(key) if key.kind == KeyEventKind::Press => self.on_key_event(key),
                 Event::Mouse(_) => {}
                 Event::Resize(_, _) => {}
                 _ => {}
@@ -67,14 +78,14 @@ impl App {
         Ok(())
     }
 
-    async fn on_key_event(&mut self, key: KeyEvent) {
+    fn on_key_event(&mut self, key: KeyEvent) {
         match (key.modifiers, key.code) {
             (_, KeyCode::Esc | KeyCode::Char('q'))
             | (KeyModifiers::CONTROL, KeyCode::Char('c') | KeyCode::Char('C')) => self.quit(),
             
             // Medir latencia (no bloqueante)
             (_, KeyCode::Enter) => {
-                self.ping_component.start_latency_measurement();
+                self.test_service.run_full_test();
             }
             _ => {}
         }

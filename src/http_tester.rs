@@ -10,6 +10,20 @@ pub struct HttpLatencyMeasurement {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct HttpUploadMeasurement {
+    pub bits: u64,
+    pub duration: Duration,
+    pub speed: f64, // bits per second
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct HttpDownloadMeasurement {
+    pub bits: u64,
+    pub duration: Duration,
+    pub speed: f64, // bits per second
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct HttpTester {
     pub url: String,
 }
@@ -27,7 +41,7 @@ impl HttpTester {
 
     pub async fn measure_latency(&self) -> Result<f64, Error> {
         let client = Client::builder()
-        .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(10))
             .user_agent("Mozilla/5.0 (compatible; speedtest-tui/1.0)")
             .build()
             .expect("Failed to build Client");
@@ -58,6 +72,7 @@ impl HttpTester {
         for _ in 0..count {
             match self.measure_latency().await {
                 Ok(latency) => {
+                    println!("Latency: {:.2} ms", latency);
                     min = min.min(latency);
                     max = max.max(latency);
                     latency_total += latency;

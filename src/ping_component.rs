@@ -1,74 +1,29 @@
-use crate::{servers::Server, tcp_tests::{TcpTest, TcpTestLatency}};
+use crate::http_tester::{HttpLatencyMeasurement, HttpTester};
 use ratatui::{style::Stylize, text::{Line, Text}, widgets::{Block, Widget}};
-use tokio::sync::mpsc;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PingComponent {
-    tcp_server: TcpTest,
-    ping: TcpTestLatency,
-    latency_rx: Option<mpsc::UnboundedReceiver<TcpTestLatency>>,
-    measuring_ping: bool,
+    ping_measurement: HttpLatencyMeasurement,
 }
 
 impl PingComponent {
-    pub fn new(tcp_server: TcpTest) -> Self {
-        let (_, rx) = mpsc::unbounded_channel();
-        Self {
-            tcp_server,
-            ping: TcpTestLatency::default(),
-            latency_rx: Some(rx),
-            measuring_ping: false,
-        }
-    }
-
-    pub fn set_server(&mut self, server: Server) {
-        self.tcp_server = TcpTest::new(server.host, 8080);
-        self.ping = TcpTestLatency::default();
-        self.measuring_ping = false;
-        self.latency_rx = None; // Reset the receiver
-    }
-        
-    pub fn start_latency_measurement(&mut self) {
-        self.measuring_ping = true;
-        let tcp_server = self.tcp_server.clone();
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.latency_rx = Some(rx);
-        tokio::spawn(async move {
-            let response = tcp_server.measure_latency_multiple(20).await;
-            match response {
-                Ok(latency) => {
-                    let _ = tx.send(latency);
-                }
-                Err(e) => {
-                    // Enviar un resultado por defecto para desbloquear
-                    let _ = tx.send(TcpTestLatency::default());
-                }
-            }
-        });
-    }
-
-    pub async fn check_latency_results(&mut self) {
-        if let Some(ref mut rx) = self.latency_rx {
-            if let Ok(latency) = rx.try_recv() {
-                self.ping = latency;
-                self.measuring_ping = false;
-            }
-        }
+    pub fn set_ping_measurement(&mut self, ping: HttpLatencyMeasurement) {
+        self.ping_measurement = ping;
     }
 }
 
-impl Widget for &PingComponent {
+impl Widget for &PingComponent{
     fn render(self, area: ratatui::layout::Rect, buf: &mut ratatui::buffer::Buffer) {
          let ping_res = Text::from(vec![
-            Line::from(format!("Average Latency: {:.2} ms", self.ping.avg))
+            Line::from(format!("Average Latency: {:.2} ms", self.ping_measurement.avg))
                 .bold()
                 .blue()
                 .centered(),
-            Line::from(format!("Min Latency: {:.2} ms", self.ping.min))
+            Line::from(format!("Min Latency: {:.2} ms", self.ping_measurement.min))
                 .bold()
                 .green()
                 .centered(),
-            Line::from(format!("Max Latency: {:.2} ms", self.ping.max))
+            Line::from(format!("Max Latency: {:.2} ms", self.ping_measurement.max))
                 .bold()
                 .red()
                 .centered(),
