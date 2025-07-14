@@ -1,7 +1,7 @@
 mod app;
 mod servers;
-mod tcp_tests;
 mod ping_component;
+mod http_tester;
 use app::App;
 
 #[tokio::main]
