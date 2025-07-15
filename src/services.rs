@@ -58,6 +58,10 @@ impl HttpTestService {
         self.state != HttpTestState::Idle 
     }
 
+    pub fn get_state(&self) -> &HttpTestState {
+        &self.state
+    }
+
     pub fn run_full_test(&mut self) {
         if self.state != HttpTestState::Idle {
             return;
@@ -97,8 +101,6 @@ impl HttpTestService {
             if let Ok(upload) = rx.try_recv() {
                 self.upload_test = upload;
                 self.state = HttpTestState::Finished;
-                println!("Upload Test Completed: {} bits in {} seconds at {} bps", 
-                    self.upload_test.bits, self.upload_test.duration.as_secs(), self.upload_test.speed);
                 self.run_current_state();
             }
         }

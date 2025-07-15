@@ -146,7 +146,7 @@ impl HttpTester {
             .user_agent("Mozilla/5.0 (compatible; speedtest-tui/1.0)")
             .build()
             .expect("Failed to build Client");
-        let url = self.url.clone() + format!("/speedtest/random{}x{}.jpg", HttpDownloadSize::S2000.to_size(), HttpDownloadSize::S2000.to_size()).as_str();
+        let url = self.url.clone() + format!("/speedtest/random{}x{}.jpg", HttpDownloadSize::S3000.to_size(), HttpDownloadSize::S3000.to_size()).as_str();
 
         let start = Instant::now();
         let response = client.get(url.as_str()).send().await;
@@ -154,9 +154,10 @@ impl HttpTester {
         match response {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    let content_length = resp.content_length().unwrap_or(0);
+                    let _body = resp.bytes().await.unwrap_or_default();
+                    let b = _body.len();
                     let duration = start.elapsed();
-                    let bits = content_length * 8; // Convert bytes to bits
+                    let bits = b as u64 * 8; // Convert bytes to bits
                     let speed = bits as f64 / duration.as_secs_f64(); // bits per second
                     return Ok(HttpDownloadMeasurement { bits, duration, speed })
                 } else {
@@ -171,6 +172,7 @@ impl HttpTester {
     } 
 
     pub async fn measure_upload(&self) -> Result<HttpUploadMeasurement, Error> {
+        let bytes = 10 * 1024 * 1024; // 10 MB of data
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
             .user_agent("Mozilla/5.0 (compatible; speedtest-tui/1.0)")
@@ -178,7 +180,7 @@ impl HttpTester {
             .expect("Failed to build Client");
         
         let url = self.url.clone() + "/speedtest/upload.php";
-        let data = vec![0u8; 10 * 1024 * 1024]; // 1 MB of data
+        let data = vec![0u8; bytes];
         let start = Instant::now();
         
         let response = client.post(url.as_str())
@@ -190,7 +192,7 @@ impl HttpTester {
             Ok(resp) => {
                 if resp.status().is_success() {
                     let duration = start.elapsed();
-                    let bits = (data.len() * 8) as u64;
+                    let bits = (bytes * 8) as u64;
                     let speed = bits as f64 / duration.as_secs_f64();
                     return Ok(HttpUploadMeasurement { bits, duration, speed })
                 } else {

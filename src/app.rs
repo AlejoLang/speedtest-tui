@@ -2,15 +2,16 @@ use std::time::Duration;
 
 use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::{widgets::{Block, Paragraph}, DefaultTerminal, Frame};
+use ratatui::{layout::Layout, widgets::{Block, Paragraph}, DefaultTerminal, Frame};
 use tokio::sync::mpsc;
-use crate::{http_tester::HttpTester, ping_component::PingComponent, servers::Servers, services::HttpTestService};
+use crate::{download_component::DownloadComponent, http_tester::HttpTester, ping_component::PingComponent, servers::Servers, services::{HttpTestService, HttpTestState}};
 
 pub struct App {
     running: bool,
     servers: Servers,
     test_service: HttpTestService,
     ping_component: PingComponent,
+    download_component: DownloadComponent,
     testing: bool
 }
 
@@ -21,6 +22,7 @@ impl App {
             servers: Servers::default(),
             test_service: HttpTestService::new(HttpTester::default()),
             ping_component: PingComponent::default(),
+            download_component: DownloadComponent::default(),
             testing: false
         }
     }
@@ -36,21 +38,28 @@ impl App {
                 return Err(e.into());
             }
         }
-        let current_server = self.servers.get_servers()[5].clone(); 
+        let current_server = self.servers.get_servers()[0].clone(); 
         let url = format!("http://{}", current_server.host);
         self.test_service.set_tester(HttpTester::new(url.as_str()));
 
         while self.running {
             self.test_service.check_measurments().await;
 
-            if !self.test_service.get_testing() {
-                let new_ping_measurment = self.test_service.get_ping_results().clone();
-                self.ping_component.set_ping_measurement(new_ping_measurment);
+            if self.test_service.get_testing() {
+                if self.test_service.get_state().clone() == HttpTestState::MeasuringDownload {
+                    let new_ping_measurment = self.test_service.get_ping_results().clone();
+                    self.ping_component.set_ping_measurement(new_ping_measurment);
+                }
+                if  self.test_service.get_state().clone() == HttpTestState::MeasuringUpload {
+                    let new_download_measurment = self.test_service.get_download_results().clone();
+                    self.download_component.set_download_measurement(new_download_measurment);
+                }
+                
             }
 
             terminal.draw(|frame| self.render(frame))?;
             
-            self.handle_crossterm_events();
+            let _ = self.handle_crossterm_events();
             
             tokio::time::sleep(Duration::from_millis(16)).await; // ~60 FPS
         }
@@ -58,7 +67,16 @@ impl App {
     }
 
     fn render(&mut self, frame: &mut Frame) {
-        frame.render_widget(&self.ping_component, frame.area());
+        let chunks = Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .margin(1)
+            .constraints([
+                ratatui::layout::Constraint::Length(6),
+                ratatui::layout::Constraint::Min(0),
+            ].as_ref())
+            .split(frame.area());
+        frame.render_widget(&self.ping_component, chunks[0]);
+        frame.render_widget(&self.download_component, chunks[1]);
         let url = self.servers.get_servers()[0].host.clone();
         let p = Block::default().title(url.as_str()).borders(ratatui::widgets::Borders::ALL);
         frame.render_widget(p, frame.area());
