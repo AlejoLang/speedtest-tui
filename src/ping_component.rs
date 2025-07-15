@@ -1,14 +1,18 @@
-use crate::http_tester::{HttpLatencyMeasurement, HttpTester};
-use ratatui::{style::Stylize, text::{Line, Text}, widgets::{Block, Widget}};
+use crate::http_tester::{HttpLatencyMeasurement};
+use ratatui::{style::{Color, Style, Stylize}, text::{Line, Text}, widgets::{Block, Widget}};
 
 #[derive(Default, Clone)]
 pub struct PingComponent {
     ping_measurement: HttpLatencyMeasurement,
+    active: bool,
 }
 
 impl PingComponent {
     pub fn set_ping_measurement(&mut self, ping: HttpLatencyMeasurement) {
         self.ping_measurement = ping;
+    }
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 }
 
@@ -30,9 +34,8 @@ impl Widget for &PingComponent{
         ]);
 
         let block = Block::bordered()
-            .title("Ping Component")
-            .border_style(ratatui::style::Style::default().fg(ratatui::style::Color::Cyan))
-            .title_style(ratatui::style::Style::default().fg(ratatui::style::Color::White).bold());
+            .border_style(Style::default().fg(if self.active { Color::Green } else { Color::Red }))
+            .title("Ping Component");
 
         let paragraph = ratatui::widgets::Paragraph::new(ping_res)
             .block(block)

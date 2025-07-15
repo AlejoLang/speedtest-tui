@@ -88,6 +88,7 @@ impl HttpTestService {
                 self.ping_test = latency;
                 self.state = HttpTestState::MeasuringDownload;
                 self.run_current_state();
+                return ;
             }
         }
         if let Some(ref mut rx) = self.download_rx {
@@ -95,14 +96,18 @@ impl HttpTestService {
                 self.download_test = download;
                 self.state = HttpTestState::MeasuringUpload;
                 self.run_current_state();
+                return ;
             }
         }
         if let Some(ref mut rx) = self.upload_rx {
             if let Ok(upload) = rx.try_recv() {
                 self.upload_test = upload;
                 self.state = HttpTestState::Finished;
-                self.run_current_state();
+                return ;
             }
+        }
+        if self.state == HttpTestState::Finished {
+            self.state = HttpTestState::Idle;
         }
     }
 

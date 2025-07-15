@@ -1,21 +1,19 @@
-use ratatui::{style::Stylize, symbols::block, text::{Line, Text}, widgets::{Block, Widget}};
+use ratatui::{style::{Color, Style, Stylize}, text::{Line, Text}, widgets::{Block, Widget}};
 
 use crate::http_tester::HttpDownloadMeasurement;
 
 #[derive(Default, Clone)]
 pub struct DownloadComponent {
     download_measurement: HttpDownloadMeasurement,
+    active: bool,
 }
 
 impl DownloadComponent {
-    pub fn new() -> Self {
-        Self {
-            download_measurement: HttpDownloadMeasurement::default(),
-        }
-    }
-
     pub fn set_download_measurement(&mut self, measurement: HttpDownloadMeasurement) {
         self.download_measurement = measurement;
+    }
+    pub fn set_active(&mut self, active: bool) {
+        self.active = active;
     }
 }
 
@@ -29,8 +27,9 @@ impl Widget for &DownloadComponent {
         ]);
 
         let block = Block::bordered()
-            .title(title);
-        
+            .title(title)
+            .border_style(Style::default().fg(if self.active { Color::Green } else { Color::Red }));
+
         let paragraph = ratatui::widgets::Paragraph::new(content)
             .block(block)
             .alignment(ratatui::layout::Alignment::Center)

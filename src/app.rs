@@ -43,23 +43,31 @@ impl App {
         self.test_service.set_tester(HttpTester::new(url.as_str()));
 
         while self.running {
-            self.test_service.check_measurments().await;
 
             if self.test_service.get_testing() {
+                if self.test_service.get_state().clone() == HttpTestState::MeasuringLatency {
+                    self.ping_component.set_active(true);
+                }
                 if self.test_service.get_state().clone() == HttpTestState::MeasuringDownload {
+                    self.ping_component.set_active(false);
+                    self.download_component.set_active(true);
                     let new_ping_measurment = self.test_service.get_ping_results().clone();
                     self.ping_component.set_ping_measurement(new_ping_measurment);
                 }
                 if  self.test_service.get_state().clone() == HttpTestState::MeasuringUpload {
+                    self.download_component.set_active(false);
+                    self.upload_component.set_active(true);
                     let new_download_measurment = self.test_service.get_download_results().clone();
                     self.download_component.set_download_measurement(new_download_measurment);
                 }
                 if self.test_service.get_state().clone() == HttpTestState::Finished {
+                    self.upload_component.set_active(false);
                     let new_upload_measurment = self.test_service.get_upload_results().clone();
                     self.upload_component.set_upload_measurement(new_upload_measurment);
                 }
             }
 
+            self.test_service.check_measurments().await;
             terminal.draw(|frame| self.render(frame))?;
             
             let _ = self.handle_crossterm_events();
