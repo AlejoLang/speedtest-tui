@@ -97,6 +97,8 @@ impl HttpTestService {
             if let Ok(upload) = rx.try_recv() {
                 self.upload_test = upload;
                 self.state = HttpTestState::Finished;
+                println!("Upload Test Completed: {} bits in {} seconds at {} bps", 
+                    self.upload_test.bits, self.upload_test.duration.as_secs(), self.upload_test.speed);
                 self.run_current_state();
             }
         }
@@ -128,8 +130,18 @@ impl HttpTestService {
         let (tx, rx) = mpsc::unbounded_channel();
         self.download_rx = Some(rx);
         tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await; // Simulate delay
-            tx.send(HttpDownloadMeasurement { bits: 1000, duration: Duration::from_secs(5), speed: 200.0 }).unwrap();
+            let download = tester.measure_download().await;
+            match download {
+                Ok(download) => {
+                    if tx.send(download).is_err() {
+                        let _ = tx.send(HttpDownloadMeasurement::default());
+                    }
+                }
+                Err(_) => {
+                    let _ = tx.send(HttpDownloadMeasurement::default());
+                }
+            }
+            
         });
     }
 
@@ -139,8 +151,17 @@ impl HttpTestService {
         let (tx, rx) = mpsc::unbounded_channel();
         self.upload_rx = Some(rx);
         tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await; // Simulate delay
-            tx.send(HttpUploadMeasurement { bits: 1000, duration: Duration::from_secs(10), speed: 100.0 }).unwrap();
+            let response = tester.measure_upload().await;
+            match response {
+                Ok(upload) => {
+                    if tx.send(upload).is_err() {
+                        let _ = tx.send(HttpUploadMeasurement::default());
+                    }
+                }
+                Err(_) => {
+                    let _ = tx.send(HttpUploadMeasurement::default());
+                }
+            }
         });
     }
 }
