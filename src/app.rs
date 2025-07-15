@@ -4,7 +4,7 @@ use color_eyre::eyre::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::{layout::Layout, widgets::{Block, Paragraph}, DefaultTerminal, Frame};
 use tokio::sync::mpsc;
-use crate::{download_component::DownloadComponent, http_tester::HttpTester, ping_component::PingComponent, servers::Servers, services::{HttpTestService, HttpTestState}};
+use crate::{download_component::DownloadComponent, http_tester::HttpTester, ping_component::PingComponent, servers::Servers, services::{HttpTestService, HttpTestState}, upload_component::UploadComponent};
 
 pub struct App {
     running: bool,
@@ -12,7 +12,7 @@ pub struct App {
     test_service: HttpTestService,
     ping_component: PingComponent,
     download_component: DownloadComponent,
-    testing: bool
+    upload_component: UploadComponent,
 }
 
 impl App {
@@ -23,7 +23,7 @@ impl App {
             test_service: HttpTestService::new(HttpTester::default()),
             ping_component: PingComponent::default(),
             download_component: DownloadComponent::default(),
-            testing: false
+            upload_component: UploadComponent::default(),
         }
     }
 
@@ -54,7 +54,10 @@ impl App {
                     let new_download_measurment = self.test_service.get_download_results().clone();
                     self.download_component.set_download_measurement(new_download_measurment);
                 }
-                
+                if self.test_service.get_state().clone() == HttpTestState::Finished {
+                    let new_upload_measurment = self.test_service.get_upload_results().clone();
+                    self.upload_component.set_upload_measurement(new_upload_measurment);
+                }
             }
 
             terminal.draw(|frame| self.render(frame))?;
@@ -72,11 +75,13 @@ impl App {
             .margin(1)
             .constraints([
                 ratatui::layout::Constraint::Length(6),
-                ratatui::layout::Constraint::Min(0),
+                ratatui::layout::Constraint::Min(3),
+                ratatui::layout::Constraint::Min(3),
             ].as_ref())
             .split(frame.area());
         frame.render_widget(&self.ping_component, chunks[0]);
         frame.render_widget(&self.download_component, chunks[1]);
+        frame.render_widget(&self.upload_component, chunks[2]);
         let url = self.servers.get_servers()[0].host.clone();
         let p = Block::default().title(url.as_str()).borders(ratatui::widgets::Borders::ALL);
         frame.render_widget(p, frame.area());
